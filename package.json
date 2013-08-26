@@ -1,0 +1,14 @@
+{
+  "name": "tallywebapp",
+  "version": "0.0.1",
+  "dependencies": {
+    "connect-flash": "latest"
+    , "connect-cachify": "*"
+    , "express": "~3.2.3"
+    , "jade": "~0.30.0"
+    , "nconf": "~0.6.7"
+    , "view-helpers": "latest"
+    , "winston": "~0.7.1"
+    , "winston-request-logger": "latest"
+  }
+}

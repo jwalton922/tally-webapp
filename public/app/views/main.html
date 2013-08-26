@@ -1,0 +1,54 @@
+
+<div class="row" style="margin-top: 100px;">
+    <div class="span12">
+        <div class="form-horizontal">
+            <div class="control-group">
+                <label class="control-label" >Tally Name</label>
+                <div class="controls">
+                    <input type="text" data-ng-model="tallyName" placeholder="Name">
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label">Tally Fields</label>
+                <div class="controls">
+                    <input type="text" data-ng-model="tallyFields" placeholder="Fields">
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label">Query</label>
+                <div class="controls">
+                    <input type="text" data-ng-model="tallyQuery" placeholder="Fields">
+                </div>
+            </div>
+            <div class="control-group">
+                <div class="controls">
+                    <button class="btn" data-ng-click="createTally()">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" data-ng-init="init()">
+    <div class="span12">
+        <select data-ng-model="selectedTally" data-ng-options="tally.tallyName for tally in tallies"></select>
+    </div>
+</div>
+<div class="row">
+    <div class="span12">
+        <select data-ng-change="getTallyCounts()" data-ng-model="selectedTallyField" data-ng-options="tallyField for tallyField in selectedTally.tallyFields"></select>
+        <div id="tallyTable">
+            <table>
+              
+            </table>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="span12">
+        <div id="stockChart">
+            
+        </div>
+    </div>
+</div>
+
