@@ -6,8 +6,12 @@ angular.module('tallyApp', [])
       .when('/', {
         templateUrl: 'views/main.html',
         controller: 'MainCtrl'
+      }) .when('/tracks', {
+        templateUrl: 'views/tracks.html',
+        controller: 'TracksCtrl'
       })
-      .otherwise({
+      .otherwise(
+      {        
         redirectTo: '/'
       });
   });

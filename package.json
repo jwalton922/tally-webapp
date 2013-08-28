@@ -10,5 +10,7 @@
     , "view-helpers": "latest"
     , "winston": "~0.7.1"
     , "winston-request-logger": "latest"
+    , "redis": "~0.8.3"
+    , "socket.io": "~0.9.14"
   }
 }
