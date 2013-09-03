@@ -4,6 +4,8 @@ var express = require('express')
         , path = require('path')
         , winston = require('winston')
         , io = require('socket.io')
+        , nodeDrpc = require('node-drpc')
+        , nodeDrpcClient =  new  nodeDrpc( "localhost", 3772, 10000)
         , redis = require("redis")
         , redisClient = redis.createClient(6379, "localhost");
 ;
@@ -29,6 +31,18 @@ app.use(express.static(__dirname + '/public/app'))
 app.get("/", function(req, res) {
     console.log("returning index.html");
     res.sendfile("public/app/index.html");
+});
+
+app.get("/tallyQuery", function(req, res) {
+    console.log("tallyQuery: "+JSON.stringify(req.query));
+//    res.sendfile("public/app/index.html");
+    nodeDrpcClient.execute( "tallyQuery", req.query.tallyName+" "+req.query.startTime, function(err, response) {
+        console.log("response: "+response);
+        res.send(eval(response));
+    });
+    
+    
+//    res.send("tallyQuery")
 });
 
 // Bootstrap models

@@ -46,12 +46,12 @@ angular.module('tallyApp')
         var startTime = currentTime - (1000 * 60 * 30);
         startTime = startTime - (startTime % ($scope.timeBin));
         var pushCount = 0;
-        $scope.getTallyCounts(startTime, function(counts) {
+        $scope.getTallyCountsDRPC(startTime, function(counts) {
             var data = [];
             for (var i = 0; i < counts.length; i++) {
                 var time = counts[i]["TIME_BIN"];
 
-                var timeCounts = counts[i]["TRIDENT_VALUE"].counts;
+                var timeCounts = counts[i].counts;
                 var total = 0;
                 for (var j = 0; j < timeCounts.length; j++) {
                     total += timeCounts[j].count;
@@ -84,7 +84,7 @@ angular.module('tallyApp')
                             var startTime = currentTime - (1000 * 60 * 1);
                             startTime = startTime - (startTime % ($scope.timeBin));
                             $log.log("query data newer than: "+startTime);
-                            $scope.getTallyCounts(startTime, function(counts) {
+                            $scope.getTallyCountsDRPC(startTime, function(counts) {
                                 var total = $scope.calculateTotalCount(counts);
                                 $log.log("time: "+currentTime+" Total = " + total);
 //                                var pointTime = new Date().getTime();
@@ -157,6 +157,22 @@ angular.module('tallyApp')
             $log.log("Error getting tally definitions: " + angular.toJson(xhr));
         });
     }
+    
+    $scope.getTallyCountsDRPC = function(startTime, callback){
+        var gremlinScript = "g.V().has('TALLY_NAME','" + $scope.selectedTally.tallyName + "').has('TIME_BIN', T.gte," + startTime + ")";
+        $log.log("gremlin script: " + gremlinScript);
+
+        var params = {};
+        params.tallyName = $scope.selectedTally.tallyName;
+        params.startTime = startTime;
+        $http.get("http://localhost:3000/tallyQuery", {params: params}).success(function(xhr) {
+//            $log.log("Tally counts: "+angular.toJson(xhr,true));
+            callback(xhr[0][3]);
+
+        }).error(function(xhr) {
+            $log.log("error getting tally counts: " + angular.toJson(xhr));
+        });
+    }
 
     $scope.getTallyCounts = function(startTime, callback) {
 //        var currentTime = new Date().getTime();
@@ -182,7 +198,7 @@ angular.module('tallyApp')
         var totalCount = 0;
         for (var i = 0; i < results.length; i++) {
             var result = results[i];
-            var counts = result["TRIDENT_VALUE"].counts;
+            var counts = result.counts;
             for (var j = 0; j < counts.length; j++) {
                 var count = counts[j];
                 // $log.log("Count: " + angular.toJson(count, true));
