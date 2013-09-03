@@ -7,7 +7,12 @@ angular.module('tallyApp')
     $scope.tallyQuery = "";
     $scope.selectedTally;
     $scope.selectedTallyField;
-    $scope.timeBin = 1000*60*1;
+    $scope.timeBin = 1000 * 60 * 1;
+    $scope.d3Chart = null;
+    $scope.d3Starttime = null;
+    $scope.d3EndTime = null;
+    $scope.d3Data = [];
+    $scope.dataMap = {};
 
     $scope.createTally = function() {
         $log.log("create tally called");
@@ -33,6 +38,101 @@ angular.module('tallyApp')
 
     }
 
+    $scope.initD3Chart = function() {
+
+
+        var currentTime = new Date().getTime();
+        var startTime = currentTime - (1000 * 60 * 30);
+        startTime = startTime - (startTime % ($scope.timeBin));
+        var pushCount = 0;
+        $scope.getTallyCountsDRPC(startTime, function(counts) {
+            var tallyData = [];
+
+            for (var i = 0; i < counts.length; i++) {
+                var time = counts[i]["TIME_BIN"];
+
+                var timeCounts = counts[i].counts;
+                var total = 0;
+                for (var j = 0; j < timeCounts.length; j++) {
+                    total += timeCounts[j].count;
+                }
+                //$log.log("time: "+time+" total: "+total);
+                pushCount++;
+                tallyData.push([time, total]);
+            }
+//            $log.log("Sorting: " + data.length + " data points");
+            tallyData.sort(function(a, b) {
+                var timeA = a[0];
+                var timeB = b[0];
+                return timeA - timeB;
+            });
+           $scope.d3Data = [];
+             $scope.d3Data.push([]);
+            for (i = 0; i < tallyData.length; i++) {
+                 $scope.d3Data[0].push(tallyData[i][1]);
+            }
+            $scope.d3Starttime = tallyData[0][0];
+            $scope.d3EndTime = tallyData[tallyData.length - 1][0];
+            $scope.dataMap = {displayNames: ["tallySeries 1"], colors: ["green"], scale: "linear", "start": $scope.d3Starttime, "end": $scope.d3EndTime, "step": $scope.timeBin, "names": ["TALLY COUNTS"], "values": $scope.d3Data};
+            //$log.log("D3 values: " + angular.toJson(data, true));
+            $scope.d3Chart = new LineGraph({containerId: 'd3graph', data: $scope.dataMap});
+            $timeout($scope.updateD3Chart, 5000);
+        });
+    }
+
+    $scope.updateD3Chart = function() {
+        $log.log("updateD3Chart called");
+        var currentTime = new Date().getTime();
+        var startTime = currentTime - (1000 * 60 * 1);
+        startTime = startTime - (startTime % ($scope.timeBin));
+        $log.log("query data newer than: " + startTime);
+        $scope.getTallyCountsDRPC(startTime, function(counts) {
+            //$log.log("updated counts: " + angular.toJson(counts, true));
+            var tallyData = [];
+
+            for (var i = 0; i < counts.length; i++) {
+                var time = counts[i]["TIME_BIN"];
+
+                var timeCounts = counts[i].counts;
+                var total = 0;
+                for (var j = 0; j < timeCounts.length; j++) {
+                    total += timeCounts[j].count;
+                }
+                //$log.log("time: "+time+" total: "+total);
+//                pushCount++;
+                tallyData.push([time, total]);
+            }
+//            $log.log("Sorting: " + data.length + " data points");
+            tallyData.sort(function(a, b) {
+                var timeA = a[0];
+                var timeB = b[0];
+                return timeA - timeB;
+            });            
+            var endTime = tallyData[tallyData.length - 1][0];
+            var numNewBins = (endTime - $scope.d3EndTime) / $scope.timeBin;
+            
+            $scope.dataMap.end = endTime;
+            
+//            $scope.d3Chart.slideData($scope.dataMap);
+            $log.log("endTime: "+endTime+" numNewBins: "+numNewBins+" new value: "+tallyData[0][1]);
+            if(numNewBins === 0){
+                $log.log("changing count from: "+$scope.d3Data[0][$scope.d3Data[0].length -1]+" to "+tallyData[0][1]);
+                 $scope.d3Data[0][$scope.d3Data[0].length -1] = tallyData[0][1];
+                 $scope.dataMap.values = $scope.d3Data;
+//                 $scope.dataMap.values = $scope.d3Data;
+                 $scope.d3Chart.updateData($scope.dataMap);
+            } else {
+                for(var z = 0; z < tallyData.length; z++){
+                    $scope.d3Data[0].shift();
+                    $scope.d3Data[0].push(tallyData[z][1]);
+                }
+            }
+            
+            $timeout($scope.updateD3Chart, 1000);
+            
+        });
+    }
+
     $scope.initStockChart = function() {
         Highcharts.setOptions({
             global: {
@@ -56,7 +156,7 @@ angular.module('tallyApp')
                 for (var j = 0; j < timeCounts.length; j++) {
                     total += timeCounts[j].count;
                 }
-                 //$log.log("time: "+time+" total: "+total);
+                //$log.log("time: "+time+" total: "+total);
                 pushCount++;
                 data.push([time, total]);
             }
@@ -66,8 +166,8 @@ angular.module('tallyApp')
                 var timeB = b[0];
                 return timeA - timeB;
             });
-            for(var z = 0; z < data.length; z++){
-                $log.log("inital data index "+z+": "+angular.toJson(data[z]));
+            for (var z = 0; z < data.length; z++) {
+                $log.log("inital data index " + z + ": " + angular.toJson(data[z]));
             }
             $log.log("Done with initial data. Size: " + data.length);
             $scope.stockChart = $('#stockChart').highcharts('StockChart', {
@@ -79,19 +179,19 @@ angular.module('tallyApp')
                             var series = this.series[0];
 
 //                       $scope.updateStockChart();
-                        setInterval(function() {
-                            var currentTime = new Date().getTime();
-                            var startTime = currentTime - (1000 * 60 * 1);
-                            startTime = startTime - (startTime % ($scope.timeBin));
-                            $log.log("query data newer than: "+startTime);
-                            $scope.getTallyCountsDRPC(startTime, function(counts) {
-                                var total = $scope.calculateTotalCount(counts);
-                                $log.log("time: "+currentTime+" Total = " + total);
+                            setInterval(function() {
+                                var currentTime = new Date().getTime();
+                                var startTime = currentTime - (1000 * 60 * 1);
+                                startTime = startTime - (startTime % ($scope.timeBin));
+                                $log.log("query data newer than: " + startTime);
+                                $scope.getTallyCountsDRPC(startTime, function(counts) {
+                                    var total = $scope.calculateTotalCount(counts);
+                                    $log.log("time: " + currentTime + " Total = " + total);
 //                                var pointTime = new Date().getTime();
-                                series.addPoint([currentTime, total]);
+                                    series.addPoint([currentTime, total]);
 //                                $timeout(updateStockChart());
-                            });
-                        }, 5000)
+                                });
+                            }, 5000)
 //                        setInterval(function() {
 //                            var x = (new Date()).getTime(), // current time
 //                                    y = Math.round(Math.random() * 100);
@@ -152,13 +252,14 @@ angular.module('tallyApp')
             $log.log("Tallies: " + angular.toJson(xhr, true));
             $scope.tallies = xhr.results;
             $scope.selectedTally = $scope.tallies[0];
-            $scope.initStockChart();
+//             $scope.initStockChart();
+            $scope.initD3Chart();
         }).error(function(xhr) {
             $log.log("Error getting tally definitions: " + angular.toJson(xhr));
         });
     }
-    
-    $scope.getTallyCountsDRPC = function(startTime, callback){
+
+    $scope.getTallyCountsDRPC = function(startTime, callback) {
         var gremlinScript = "g.V().has('TALLY_NAME','" + $scope.selectedTally.tallyName + "').has('TIME_BIN', T.gte," + startTime + ")";
         $log.log("gremlin script: " + gremlinScript);
 
@@ -167,7 +268,7 @@ angular.module('tallyApp')
         params.startTime = startTime;
         $http.get("http://localhost:3000/tallyQuery", {params: params}).success(function(xhr) {
 //            $log.log("Tally counts: "+angular.toJson(xhr,true));
-            callback(xhr[0][3]);
+            callback(xhr);
 
         }).error(function(xhr) {
             $log.log("error getting tally counts: " + angular.toJson(xhr));

@@ -38,7 +38,8 @@ app.get("/tallyQuery", function(req, res) {
 //    res.sendfile("public/app/index.html");
     nodeDrpcClient.execute( "tallyQuery", req.query.tallyName+" "+req.query.startTime, function(err, response) {
         console.log("response: "+response);
-        res.send(eval(response));
+        var responseJson = eval(response);
+        res.send(responseJson[0][4]);
     });
     
     
