@@ -66,10 +66,10 @@ angular.module('tallyApp')
                 var timeB = b[0];
                 return timeA - timeB;
             });
-           $scope.d3Data = [];
-             $scope.d3Data.push([]);
+            $scope.d3Data = [];
+            $scope.d3Data.push([]);
             for (i = 0; i < tallyData.length; i++) {
-                 $scope.d3Data[0].push(tallyData[i][1]);
+                $scope.d3Data[0].push(tallyData[i][1]);
             }
             $scope.d3Starttime = tallyData[0][0];
             $scope.d3EndTime = tallyData[tallyData.length - 1][0];
@@ -107,29 +107,32 @@ angular.module('tallyApp')
                 var timeA = a[0];
                 var timeB = b[0];
                 return timeA - timeB;
-            });            
-            var endTime = tallyData[tallyData.length - 1][0];
-            var numNewBins = (endTime - $scope.d3EndTime) / $scope.timeBin;
-            
-            $scope.dataMap.end = endTime;
-            
-//            $scope.d3Chart.slideData($scope.dataMap);
-            $log.log("endTime: "+endTime+" numNewBins: "+numNewBins+" new value: "+tallyData[0][1]);
-            if(numNewBins === 0){
-                $log.log("changing count from: "+$scope.d3Data[0][$scope.d3Data[0].length -1]+" to "+tallyData[0][1]);
-                 $scope.d3Data[0][$scope.d3Data[0].length -1] = tallyData[0][1];
-                 $scope.dataMap.values = $scope.d3Data;
-//                 $scope.dataMap.values = $scope.d3Data;
-                 $scope.d3Chart.updateData($scope.dataMap);
+            });
+            if (tallyData.length === 0) {
+
             } else {
-                for(var z = 0; z < tallyData.length; z++){
-                    $scope.d3Data[0].shift();
-                    $scope.d3Data[0].push(tallyData[z][1]);
+                var endTime = tallyData[tallyData.length - 1][0];
+                var numNewBins = (endTime - $scope.d3EndTime) / $scope.timeBin;
+
+                $scope.dataMap.end = endTime;
+
+//            $scope.d3Chart.slideData($scope.dataMap);
+                $log.log("endTime: " + endTime + " numNewBins: " + numNewBins + " new value: " + tallyData[0][1]);
+                if (numNewBins === 0) {
+                    $log.log("changing count from: " + $scope.d3Data[0][$scope.d3Data[0].length - 1] + " to " + tallyData[0][1]);
+                    $scope.d3Data[0][$scope.d3Data[0].length - 1] = tallyData[0][1];
+                    $scope.dataMap.values = $scope.d3Data;
+//                 $scope.dataMap.values = $scope.d3Data;
+                    $scope.d3Chart.updateData($scope.dataMap);
+                } else {
+                    for (var z = 0; z < tallyData.length; z++) {
+                        $scope.d3Data[0].shift();
+                        $scope.d3Data[0].push(tallyData[z][1]);
+                    }
                 }
             }
-            
             $timeout($scope.updateD3Chart, 1000);
-            
+
         });
     }
 
