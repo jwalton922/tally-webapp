@@ -45,12 +45,20 @@ function TracksCtrl($scope, $log, $timeout) {
     $scope.updatedPositionData = [];
     $scope.aircraftCount = 0;
     $scope.updatedPositions = 0;
+    $scope.timeSinceLastUpdate = 0;
+    $scope.timeOfLastUpdate = null;
     $scope.init = function() {
         $log.log("TracksCtrl init called!");
 
 
         $scope.airplaneIcon = L.icon({
             iconUrl: 'images/airplane_icon.png',
+            iconSize: [30, 30],
+            iconAnchor: [60, 60],
+        });
+
+        $scope.delayedAirplaneIcon = L.icon({
+            iconUrl: 'images/airplane_icon_red.png',
             iconSize: [30, 30],
             iconAnchor: [60, 60],
         });
@@ -70,17 +78,31 @@ function TracksCtrl($scope, $log, $timeout) {
             $scope.messageCount++;
 //            $scope.$apply();
         });
-        
+
         $scope.updatePositions();
     }
 
     $scope.updatePositions = function() {
-        $log.log("There are "+$scope.updatedPositionData.length+" positions");
+        $log.log("There are " + $scope.updatedPositionData.length + " positions");
         $scope.updatedPositions = 0;
+        var cTime = new Date().getTime();
+        if (!$scope.timeOfLastUpdate) {
+            $scope.timeOfLastUpdate = cTime;
+        }
+        if ($scope.updatedPositionData.length > 0) {
+            $scope.timeOfLastUpdate = cTime;
+        }
+        $scope.timeSinceLastUpdate = (cTime - $scope.timeOfLastUpdate);
+        
+        
+
         for (var i = 0; i < $scope.updatedPositionData.length; i++) {
             var trackData = $scope.updatedPositionData[i];
             var trackid = trackData["FLIGHT_NUMBER"];
-           // $log.log("Track id: "+trackid);
+            if (trackData["DELAYED"]) {
+
+            }
+            // $log.log("Track id: "+trackid);
             var trackObj = $scope.tracks[trackid];
             if (!trackObj) {
                 trackObj = {};
@@ -93,28 +115,38 @@ function TracksCtrl($scope, $log, $timeout) {
 //                }
                 trackObj.marker.setLatLng(new L.LatLng(trackData["LATITUDE"], trackData["LONGITUDE"]));
                 trackObj.marker.options.iconAngle = trackData["HEADING"];
-                var date = new Date();                                
+                var date = new Date();
                 date.setTime(trackData["TIME"])
                 trackData.date = date;
                 var popupContent = $scope.createPopupFromEvent(trackData);
-                trackObj.marker.setPopupContent(popupContent)
+                trackObj.marker.setPopupContent(popupContent);
+                if (trackData["DELAYED"]) {
+                    trackObj.marker.setIcon($scope.delayedAirplaneIcon);
+                } else {
+                    trackObj.marker.setIcon($scope.airplaneIcon);
+                }
                 trackObj.marker.update();
                 var diff = trackData["TIME"] - trackObj.lastSeenTime;
-                if(diff > 0){
+                if (diff > 0) {
                     $scope.updatedPositions++;
                 }
                 trackObj.lastSeenTime = trackData["TIME"];
-                
+
             } else {
-                $log.log("track data: "+angular.toJson(trackData));
-                trackObj.marker = new L.Marker(new L.LatLng(trackData["LATITUDE"], trackData["LONGITUDE"]), {icon: $scope.airplaneIcon, iconAngle: trackData["HEADING"], title : trackData["FLIGHT_NUMBER"]});
+                $log.log("track data: " + angular.toJson(trackData));
+                trackObj.marker = new L.Marker(new L.LatLng(trackData["LATITUDE"], trackData["LONGITUDE"]), {icon: $scope.airplaneIcon, iconAngle: trackData["HEADING"], title: trackData["FLIGHT_NUMBER"]});
                 // $log.log("Marker: "+angular.toJson(trackObj.marker));
-                var date = new Date();                
+                var date = new Date();
                 date.setTime(trackData["TIME"]);
                 trackData.date = date;
                 var popupContent = $scope.createPopupFromEvent(trackData);
-                $log.log("popupContent = "+popupContent);
-                trackObj.marker.bindPopup(popupContent, {})
+                //$log.log("popupContent = "+popupContent);
+                trackObj.marker.bindPopup(popupContent, {});
+                if (trackData["DELAYED"]) {
+                    trackObj.marker.setIcon($scope.delayedAirplaneIcon);
+                } else {
+                    trackObj.marker.setIcon($scope.airplaneIcon);
+                }
                 trackObj.marker.addTo($scope.map);
                 trackObj.lastSeenTime = trackData["TIME"];
             }
@@ -125,11 +157,11 @@ function TracksCtrl($scope, $log, $timeout) {
         $scope.updatedPositionData = [];
         var currentTime = new Date().getTime();
         $scope.aircraftCount = 0;
-        for(var key in $scope.tracks){
+        for (var key in $scope.tracks) {
             var track = $scope.tracks[key];
             var timeAgo = currentTime - track.lastSeenTime;
-            if(timeAgo > 900000){
-                $log.log("removing track object, too much time elapsed: "+timeAgo);
+            if (timeAgo > 900000) {
+                $log.log("removing track object, too much time elapsed: " + timeAgo);
                 $scope.map.removeLayer(track.marker);
                 delete $scope.tracks[key];
             } else {
@@ -138,13 +170,13 @@ function TracksCtrl($scope, $log, $timeout) {
         }
         $timeout($scope.updatePositions, 1000);
     }
-    
-    $scope.createPopupFromEvent = function(event){
+
+    $scope.createPopupFromEvent = function(event) {
         var htmlString = "<div><ul>";
-        for(var key in event){
-            htmlString+="<li>"+key+" = "+event[key]+"</li>"
+        for (var key in event) {
+            htmlString += "<li>" + key + " = " + event[key] + "</li>"
         }
-        htmlString+="</ul></div>";
+        htmlString += "</ul></div>";
         return htmlString;
     }
 
