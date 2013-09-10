@@ -91,11 +91,12 @@ sio.sockets.on('connection', function(socket) {
 });
 
 redisClient.subscribe("TRACKS");
-
+redisClient.subscribe("FLIGHT_DELAY_TWEET");
 redisClient.on("message", function(channel, message) {
     console.log("Received message on channel: " + channel);
     if (sio.sockets) {
-        sio.sockets.emit('TRACKS', JSON.parse(message));
+        
+        sio.sockets.emit(channel, JSON.parse(message));
     } else {
         console.log("io.sockets is null")
     }

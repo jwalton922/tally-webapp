@@ -78,6 +78,20 @@ function TracksCtrl($scope, $log, $timeout) {
             $scope.messageCount++;
 //            $scope.$apply();
         });
+        
+        socket.on('FLIGHT_DELAY_TWEET', function(data) {
+            $log.log("tweet: "+angular.toJson(data));
+            var lat = data.lat;
+            var lon = data.lon;
+            $log.log("Craeting marker at "+lat+","+lon);
+            var marker = new L.Marker(new L.LatLng(lat, lon), {title: data.tweet_text});
+            marker.addTo($scope.map);
+//            var currTime = new Date().getTime();
+//            $scope.updatedPositionData = data;
+//
+//            $scope.messageCount++;
+//            $scope.$apply();
+        });
 
         $scope.updatePositions();
     }
