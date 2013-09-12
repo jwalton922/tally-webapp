@@ -37,7 +37,7 @@ L.Marker.include({
 //                this._icon.style.WebkitTransform = this._icon.style.WebkitTransform + ' rotate(' + this.options.angle + 'deg)';
 //            }
 //        });
-function TracksCtrl($scope, $log, $timeout) {
+function TracksCtrl($scope, $log, $timeout, $http) {
     $scope.messageCount = 0;
     $scope.map = null;
     $scope.tracks = {};
@@ -47,6 +47,7 @@ function TracksCtrl($scope, $log, $timeout) {
     $scope.updatedPositions = 0;
     $scope.timeSinceLastUpdate = 0;
     $scope.timeOfLastUpdate = null;
+    $scope.tweetPairCount = 0;
     $scope.init = function() {
         $log.log("TracksCtrl init called!");
 
@@ -78,22 +79,26 @@ function TracksCtrl($scope, $log, $timeout) {
             $scope.messageCount++;
 //            $scope.$apply();
         });
-        
+
         socket.on('FLIGHT_DELAY_TWEET', function(data) {
-            $log.log("tweet: "+angular.toJson(data));
+            $log.log("tweet: " + angular.toJson(data));
             var lat = data.lat;
             var lon = data.lon;
-            $log.log("Craeting marker at "+lat+","+lon);
-            var marker = new L.Marker(new L.LatLng(lat, lon), {title: data.tweet_text});
-            marker.addTo($scope.map);
+            if (lat > 0 || lat < 0) {
+                $log.log("Craeting marker at " + lat + "," + lon);
+                var marker = new L.Marker(new L.LatLng(lat, lon), {title: data.tweet_text});
+                marker.addTo($scope.map);
 //            var currTime = new Date().getTime();
 //            $scope.updatedPositionData = data;
 //
 //            $scope.messageCount++;
 //            $scope.$apply();
+            }
         });
 
-        $scope.updatePositions();
+        // $scope.updatePositions();
+
+        $scope.getDistantTweetPairs()
     }
 
     $scope.updatePositions = function() {
@@ -107,8 +112,8 @@ function TracksCtrl($scope, $log, $timeout) {
             $scope.timeOfLastUpdate = cTime;
         }
         $scope.timeSinceLastUpdate = (cTime - $scope.timeOfLastUpdate);
-        
-        
+
+
 
         for (var i = 0; i < $scope.updatedPositionData.length; i++) {
             var trackData = $scope.updatedPositionData[i];
@@ -194,5 +199,47 @@ function TracksCtrl($scope, $log, $timeout) {
         return htmlString;
     }
 
+    $scope.getDistantTweetPairs = function() {
+        var gremlinScript = "g.V().has('OBJECT_TYPE','TWITTER_USER').has('HAS_DISTANT_TWEETS', true)";
+        $log.log("gremlin script: " + gremlinScript);
 
+        var params = {};
+        params.script = gremlinScript;
+
+        $http.get("http://localhost:8182/graphs/mongograph/tp/gremlin", {params: params}).success(function(xhr) {
+            var rainbow = new Rainbow();
+            rainbow.setNumberRange(0, xhr.results.length - 1);
+//            rainbow.setNumberRange(0, 10);
+            for (var i = 0; i < xhr.results.length; i++) {
+                var color = rainbow.colourAt(i);
+                //$log.log("color: "+angular.toJson(color));
+                var distantPairs = xhr.results[i]["DISTANT_TWEETS"];
+//                $log.log(distantPairs.length+" distant tweet pairs");
+                for (var j = 0; j < distantPairs.length; j++) {
+                    $scope.tweetPairCount++;
+                    var pair = distantPairs[j];
+//                    $log.log("processing distant pair: "+angular.toJson(pair));
+                    var firstLatLng = new L.LatLng(pair.firstLat, pair.firstLon)
+                    var marker = new L.CircleMarker(firstLatLng, {title: pair.firstTweet, color: "#" + color});
+                    marker.bindPopup($scope.createPopupFromEvent({user: xhr.results[i]["USER_ID"], tweet: pair.firstTweet, timeDiff : timeDiff}));
+                    marker.addTo($scope.map);
+                    var secondLatLng = new L.LatLng(pair.secondLat, pair.secondLon);
+                    var marker2 = new L.CircleMarker(secondLatLng, {title: pair.secondTweet, color: "#" + color});
+                    marker2.bindPopup($scope.createPopupFromEvent({user: xhr.results[i]["USER_ID"], tweet: pair.secondTweet,timeDiff : timeDiff}));
+                    marker2.addTo($scope.map);
+                    var timeDiff = pair.secondTime - pair.firstTime;
+                    var polyline = new L.Polyline([firstLatLng, secondLatLng], {color: "#"+color});
+                    polyline.addTo($scope.map);
+                }
+//                if (i > 10) {
+//                    break;
+//                }
+            }
+
+        }).error(function(xhr) {
+            $log.log("error getting tally counts: " + angular.toJson(xhr));
+        });
+
+
+    }
 }
