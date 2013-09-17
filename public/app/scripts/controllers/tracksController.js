@@ -48,6 +48,8 @@ function TracksCtrl($scope, $log, $timeout, $http) {
     $scope.timeSinceLastUpdate = 0;
     $scope.timeOfLastUpdate = null;
     $scope.tweetPairCount = 0;
+    $scope.airports = [];
+    $scope.flightSchedules = [];
     $scope.init = function() {
         $log.log("TracksCtrl init called!");
 
@@ -55,13 +57,13 @@ function TracksCtrl($scope, $log, $timeout, $http) {
         $scope.airplaneIcon = L.icon({
             iconUrl: 'images/airplane_icon.png',
             iconSize: [30, 30],
-            iconAnchor: [60, 60],
+            iconAnchor: [60, 60]
         });
 
         $scope.delayedAirplaneIcon = L.icon({
             iconUrl: 'images/airplane_icon_red.png',
             iconSize: [30, 30],
-            iconAnchor: [60, 60],
+            iconAnchor: [60, 60]
         });
 
         $scope.map = L.map('map').setView([51.505, -0.09], 3);
@@ -98,8 +100,11 @@ function TracksCtrl($scope, $log, $timeout, $http) {
 
         // $scope.updatePositions();
 
-        $scope.getDistantTweetPairs()
-    }
+        $scope.getDistantTweetPairs();
+        
+        $scope.getPossibleAirports();
+        $scope.getPossibleFlightSchedules();
+    };
 
     $scope.updatePositions = function() {
         $log.log("There are " + $scope.updatedPositionData.length + " positions");
@@ -135,7 +140,7 @@ function TracksCtrl($scope, $log, $timeout, $http) {
                 trackObj.marker.setLatLng(new L.LatLng(trackData["LATITUDE"], trackData["LONGITUDE"]));
                 trackObj.marker.options.iconAngle = trackData["HEADING"];
                 var date = new Date();
-                date.setTime(trackData["TIME"])
+                date.setTime(trackData["TIME"]);
                 trackData.date = date;
                 var popupContent = $scope.createPopupFromEvent(trackData);
                 trackObj.marker.setPopupContent(popupContent);
@@ -188,16 +193,26 @@ function TracksCtrl($scope, $log, $timeout, $http) {
             }
         }
         $timeout($scope.updatePositions, 1000);
-    }
+    };
 
     $scope.createPopupFromEvent = function(event) {
         var htmlString = "<div><ul>";
         for (var key in event) {
-            htmlString += "<li>" + key + " = " + event[key] + "</li>"
+            if(event[key] instanceof Array) {
+                for each (var flight in event[key]) {
+                    htmlString += "<li>" + key + " = ";
+                    for each(var item in flight) {
+                        htmlString += item + ", ";
+                    }
+                    htmlString += "</li>";
+                }
+            } else {
+                htmlString += "<li>" + key + " = " + event[key] + "</li>";
+            }
         }
         htmlString += "</ul></div>";
         return htmlString;
-    }
+    };
 
     $scope.getDistantTweetPairs = function() {
         var gremlinScript = "g.V().has('OBJECT_TYPE','TWITTER_USER').has('HAS_DISTANT_TWEETS', true)";
@@ -211,6 +226,7 @@ function TracksCtrl($scope, $log, $timeout, $http) {
             rainbow.setNumberRange(0, xhr.results.length - 1);
 //            rainbow.setNumberRange(0, 10);
             for (var i = 0; i < xhr.results.length; i++) {
+//            for (var i = 0; i < 1; i++) {
                 var color = rainbow.colourAt(i);
                 //$log.log("color: "+angular.toJson(color));
                 var distantPairs = xhr.results[i]["DISTANT_TWEETS"];
@@ -219,7 +235,7 @@ function TracksCtrl($scope, $log, $timeout, $http) {
                     $scope.tweetPairCount++;
                     var pair = distantPairs[j];
 //                    $log.log("processing distant pair: "+angular.toJson(pair));
-                    var firstLatLng = new L.LatLng(pair.firstLat, pair.firstLon)
+                    var firstLatLng = new L.LatLng(pair.firstLat, pair.firstLon);
                     var marker = new L.CircleMarker(firstLatLng, {title: pair.firstTweet, color: "#" + color});
                     marker.bindPopup($scope.createPopupFromEvent({user: xhr.results[i]["USER_ID"], tweet: pair.firstTweet, timeDiff : timeDiff}));
                     marker.addTo($scope.map);
@@ -230,6 +246,7 @@ function TracksCtrl($scope, $log, $timeout, $http) {
                     var timeDiff = pair.secondTime - pair.firstTime;
                     var polyline = new L.Polyline([firstLatLng, secondLatLng], {color: "#"+color});
                     polyline.addTo($scope.map);
+                    polyline.bindPopup($scope.createPopupFromEvent($scope.getPossibleFlights(pair)));
                 }
 //                if (i > 10) {
 //                    break;
@@ -239,7 +256,109 @@ function TracksCtrl($scope, $log, $timeout, $http) {
         }).error(function(xhr) {
             $log.log("error getting tally counts: " + angular.toJson(xhr));
         });
+      };
+        
+      $scope.getPossibleFlights = function(pair) {
+          var from = {};
+          var to = {};
+          var possibleFlights = [];
+          
+          for each(var airport in $scope.airports) {
+              var data = [];
+              data = airport["AIRPORT_DATA"];
+              
+              for each (d in data) {
+                  if($scope.distance(pair.firstLat, pair.firstLon, d["LATITUDE"], d["LONGITUDE"]) <= 5) {
+                      from = d;
+                  }
+                  if($scope.distance(pair.secondLat, pair.secondLon, d["LATITUDE"], d["LONGITUDE"]) <= 5) {
+                      to = d;
+                  }                  
+              }
+          }
+           
+          var count = 0;
+          var origin = "";
+          var origin_lookup = "";
+          var dest = "";
+          var dest_lookup = "";
+          for each(var flightSchedule in $scope.flightSchedules) {
+              var data = [];
+              data = flightSchedule["FLIGHT_SCHEDULE_DATA"];
+              
+              for each (d in data) {
+                  origin = String(d.ORIGIN);
+                  origin_lookup = origin.substring(origin.indexOf("(")+1, origin.indexOf(")"));
+                  origin_lookup = origin_lookup.substring(1, origin_lookup.length);
+                  
+                  dest = String(d.DESTINATION);
+                  dest_lookup = dest.substring(dest.indexOf("(")+1, dest.indexOf(")"));
+                  dest_lookup = dest_lookup.substring(1, dest_lookup.length);
+                  
+                  var from_name = "";
+                  from_name = String(from.NAME).trim();               
+                  var to_name = "";
+                  to_name = String(to.NAME).trim();
+   
+                  if(origin_lookup.match(from_name) &&
+                     dest_lookup.match(to_name)) {
+                     possibleFlights[count] = d;
+                     count++;
+                  }
+              }
+          }
+          
+          var distOfTweetToAirport1 = $scope.distance(pair.firstLat, pair.firstLon, from.LATITUDE, from.LONGITUDE);
+          var distOfTweetToAirport2 = $scope.distance(pair.secondLat, pair.secondLon, to.LATITUDE, to.LONGITUDE);
+          return {distance1 : distOfTweetToAirport1,
+                  distance2 : distOfTweetToAirport2,
+                  origin : from.NAME,
+                  destination : to.NAME,
+                  possible_flights_taken : possibleFlights};
+      };
+      
+      $scope.distance = function(lat1, lon1, lat2, lon2) {
+        var theta = lon1 - lon2;
+        var dist = Math.sin($scope.deg2rad(lat1)) * Math.sin($scope.deg2rad(lat2)) + Math.cos($scope.deg2rad(lat1)) * Math.cos($scope.deg2rad(lat2)) * Math.cos($scope.deg2rad(theta));
+        dist = Math.acos(dist);
+        dist = $scope.rad2deg(dist);
+        dist = dist * 60 * 1.1515;
+        return (dist);
+      };
+      
+      $scope.deg2rad = function(deg) {
+        return (deg * Math.PI / 180.0);
+      };
+      
+      $scope.rad2deg = function(rad) {
+        return (rad * 180 / Math.PI);  
+      };
+      
+      $scope.getPossibleAirports = function() {
+          var gremlinScript = "g.V().has('OBJECT_TYPE','AIRPORT')";
+          $log.log("gremlin script: " + gremlinScript);
 
+          var params = {};
+          params.script = gremlinScript;
 
-    }
+          $http.get("http://localhost:8182/graphs/mongograph/tp/gremlin", {params: params}).success(function(xhr) {
+              $scope.airports = xhr.results;
+          }).error(function(xhr) {
+              $log.log("error getting airports: " + angular.toJson(xhr));
+          });
+      };
+      
+      $scope.getPossibleFlightSchedules = function() {
+          var gremlinScript = "g.V().has('OBJECT_TYPE','FLIGHT_SCHEDULE')";
+          $log.log("gremlin script: " + gremlinScript);
+
+          var params = {};
+          params.script = gremlinScript;
+
+          $http.get("http://localhost:8182/graphs/mongograph/tp/gremlin", {params: params}).success(function(xhr) {
+              $scope.flightSchedules = xhr.results;
+          }).error(function(xhr) {
+              $log.log("error getting flight schedules: " + angular.toJson(xhr));
+          });          
+      };
 }
